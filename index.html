@@ -69,6 +69,15 @@
 
   #player{display:none}
   #player .head{margin:0 0 16px;font-size:19px;font-weight:650;letter-spacing:-.02em;color:#B8FF4A}
+  .recwrap{
+    position:relative;width:100%;padding-top:60%;border-radius:16px;overflow:hidden;
+    background:#000;border:1px solid rgba(242,246,243,.12);
+  }
+  .recwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .hint{
+    margin:14px 0 0;font-size:13.5px;line-height:1.5;color:rgba(242,246,243,.55);
+  }
+  .hint a{color:#B8FF4A;font-weight:600}
   .card{
     border:1px solid rgba(184,255,74,.35);background:rgba(184,255,74,.06);
     border-radius:16px;padding:22px;
@@ -191,25 +200,25 @@
     btn.textContent = 'Смотреть запись';
   }
 
+  // Запись показываем ПРЯМО на странице во встроенном плеере — без новой вкладки,
+  // которую браузер часто блокирует (это и было причиной «ничего не работает»).
+  // Пока у записи включён код, Zoom покажет своё поле для кода внутри этого плеера;
+  // код уже скопирован, вставить его можно не уходя со страницы.
+  // Как только код у записи выключат в Zoom — плеер начнёт играть сам, без правок.
   function reveal(copied) {
     document.getElementById('intro').style.display = 'none';
     document.getElementById('player').style.display = 'block';
     document.getElementById('slot').innerHTML =
-      '<div class="card"><p class="big">Запись открыта в соседней вкладке</p>' +
-      '<p>Zoom попросит короткий код — он уже готов, вводить руками ничего не нужно.</p>' +
+      '<div class="recwrap"><iframe src="' + esc(REC) + '" allow="autoplay; fullscreen" ' +
+      'allowfullscreen></iframe></div>' +
       '<div class="code"><span class="label">Код</span>' +
       '<span class="val">' + esc(CODE) + '</span>' +
       '<button class="copy" id="copy" type="button">Копировать</button></div>' +
       (copied
-        ? '<p class="copied">✓ Код скопирован — просто вставьте его в поле Zoom</p>'
-        : '<p class="copied off">Нажмите «Копировать» — потом вставьте код в поле Zoom</p>') +
-      '<ul class="steps">' +
-      '<li><b>1</b><span>Перейдите на соседнюю вкладку с Zoom</span></li>' +
-      '<li><b>2</b><span>Нажмите на поле для кода и вставьте: на телефоне — долгое нажатие и «Вставить», на компьютере — Ctrl+V или Cmd+V</span></li>' +
-      '<li><b>3</b><span>Нажмите кнопку рядом с полем — запись начнётся</span></li>' +
-      '</ul>' +
-      '<a class="go" href="' + esc(REC) + '" target="_blank" rel="noopener">Открыть запись ещё раз</a>' +
-      '</div>';
+        ? '<p class="copied">✓ Код уже скопирован — если плеер попросит код, просто вставьте его</p>'
+        : '<p class="copied off">Если плеер попросит код — нажмите «Копировать» и вставьте его в поле</p>') +
+      '<p class="hint">Если видео не открылось — ' +
+      '<a href="' + esc(REC) + '" target="_blank" rel="noopener">откройте запись в новой вкладке</a>.</p>';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     var c = document.getElementById('copy');
@@ -233,10 +242,9 @@
     if (document.getElementById('company').value) return;
 
     btn.disabled = true;
-    btn.textContent = 'Открываем…';
+    btn.textContent = 'Открываем запись…';
 
-    // Копирование и новая вкладка — строго внутри нажатия кнопки:
-    // иначе браузер посчитает их самодеятельностью страницы и заблокирует.
+    // Код в буфер — на случай, если у записи ещё включён пароль. Строго внутри клика.
     var copied = false;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -244,7 +252,6 @@
         copied = true;
       }
     } catch (e) { copied = false; }
-    window.open(REC, '_blank', 'noopener');
 
     var payload = {
       name: name,
@@ -254,18 +261,17 @@
       ts: new Date().toISOString()
     };
 
-    var done = false;
-    function finish() { if (!done) { done = true; reveal(copied); } }
+    // Плеер показываем сразу, не заставляя ждать ответа CRM (в no-cors он всё равно нечитаем).
+    reveal(copied);
 
-    fetch(HOOK, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }).then(finish).catch(finish);
-
-    // Ответ в режиме no-cors прочитать нельзя, поэтому не заставляем человека ждать.
-    setTimeout(finish, 2200);
+    try {
+      fetch(HOOK, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) { /* заявку не теряем визуально: плеер уже открыт */ }
   }
 </script>
 </body>
