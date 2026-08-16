@@ -86,8 +86,21 @@
   }
   .code .label{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(242,246,243,.4)}
   .code .val{
-    flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;
-    font-weight:600;letter-spacing:.04em;color:#F2F6F3;user-select:all;
+    flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;
+    font-weight:700;letter-spacing:.06em;color:#B8FF4A;user-select:all;
+  }
+  .copied{
+    display:flex;align-items:center;gap:8px;margin:14px 0 0;
+    font-size:13.5px;font-weight:600;color:#B8FF4A;
+  }
+  .copied.off{color:rgba(242,246,243,.5);font-weight:500}
+  .steps{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:9px}
+  .steps li{
+    display:flex;gap:10px;font-size:13.5px;line-height:1.45;color:rgba(242,246,243,.6);
+  }
+  .steps li b{
+    flex:none;width:20px;height:20px;border-radius:50%;background:rgba(184,255,74,.16);
+    color:#B8FF4A;font-size:11.5px;font-weight:700;display:grid;place-items:center;
   }
   .code .copy{
     width:auto;margin:0;padding:9px 14px;font-size:13px;font-weight:600;
@@ -178,16 +191,25 @@
     btn.textContent = 'Смотреть запись';
   }
 
-  function reveal() {
+  function reveal(copied) {
     document.getElementById('intro').style.display = 'none';
     document.getElementById('player').style.display = 'block';
     document.getElementById('slot').innerHTML =
-      '<div class="card"><p class="big">Запись открыта</p>' +
-      '<p>Откроется в новой вкладке. Zoom спросит код — вставьте его из поля ниже.</p>' +
-      '<a class="go" href="' + esc(REC) + '" target="_blank" rel="noopener">Смотреть запись</a>' +
+      '<div class="card"><p class="big">Запись открыта в соседней вкладке</p>' +
+      '<p>Zoom попросит короткий код — он уже готов, вводить руками ничего не нужно.</p>' +
       '<div class="code"><span class="label">Код</span>' +
       '<span class="val">' + esc(CODE) + '</span>' +
-      '<button class="copy" id="copy" type="button">Копировать</button></div></div>';
+      '<button class="copy" id="copy" type="button">Копировать</button></div>' +
+      (copied
+        ? '<p class="copied">✓ Код скопирован — просто вставьте его в поле Zoom</p>'
+        : '<p class="copied off">Нажмите «Копировать» — потом вставьте код в поле Zoom</p>') +
+      '<ul class="steps">' +
+      '<li><b>1</b><span>Перейдите на соседнюю вкладку с Zoom</span></li>' +
+      '<li><b>2</b><span>Нажмите на поле для кода и вставьте: на телефоне — долгое нажатие и «Вставить», на компьютере — Ctrl+V или Cmd+V</span></li>' +
+      '<li><b>3</b><span>Нажмите кнопку рядом с полем — запись начнётся</span></li>' +
+      '</ul>' +
+      '<a class="go" href="' + esc(REC) + '" target="_blank" rel="noopener">Открыть запись ещё раз</a>' +
+      '</div>';
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     var c = document.getElementById('copy');
@@ -197,7 +219,6 @@
         setTimeout(function () { c.textContent = 'Копировать'; }, 2000);
       }).catch(function () { c.textContent = 'Выделите вручную'; });
     });
-    window.open(REC, '_blank', 'noopener');
   }
 
   function send() {
@@ -212,7 +233,18 @@
     if (document.getElementById('company').value) return;
 
     btn.disabled = true;
-    btn.textContent = 'Отправляем…';
+    btn.textContent = 'Открываем…';
+
+    // Копирование и новая вкладка — строго внутри нажатия кнопки:
+    // иначе браузер посчитает их самодеятельностью страницы и заблокирует.
+    var copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(CODE);
+        copied = true;
+      }
+    } catch (e) { copied = false; }
+    window.open(REC, '_blank', 'noopener');
 
     var payload = {
       name: name,
@@ -223,7 +255,7 @@
     };
 
     var done = false;
-    function finish() { if (!done) { done = true; reveal(); } }
+    function finish() { if (!done) { done = true; reveal(copied); } }
 
     fetch(HOOK, {
       method: 'POST',
